@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 
 st.title("🎈 Procurement Scenario Planning")
 st.write(
- #   "Let's start building! For help and inspiration, head over to [docs.streamlit.io](https://docs.streamlit.io/)."
-)
+ "The app is designed to solve a supply chain optimization problem by calculating an optimal sourcing strategy for multiple suppliers. It leverages data on supplier capacity, cost, emissions, and monthly demand, which users upload in CSV format. The app computes the optimal solution that minimizes total costs while meeting demand and adhering to emissions constraints, such as an emissions cap and a carbon cost penalty for emissions. Through the use of interactive sliders, users can conduct sensitivity analysis by adjusting the emissions cap and carbon cost in real time. Each adjustment triggers a recalculation of the optimal solution, updating the recommended units to source from each supplier, the corresponding emissions, and the total cost. This feature allows for exploration of different scenarios, providing valuable insights into the trade-offs between costs and emissions under various constraints")
 
 # Function to load supplier and demand data from an uploaded CSV file
 def load_data(uploaded_file):
