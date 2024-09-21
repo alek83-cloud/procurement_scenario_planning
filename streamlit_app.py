@@ -74,15 +74,15 @@ def plot_sourcing_and_emissions(data, emissions_cap, CarbonCost, month):
     plt.title(f"Sourcing Optimization for Month {month}: Emissions Cap = {emissions_cap}, Carbon Cost = {CarbonCost}", fontsize=16)
     fig.tight_layout()
 
-    # Display the plot in Streamlit
-    st.pyplot(fig)
-
     # Display a table with results
     table_data = [[labels[i], f"{units[i]:.0f}", f"{emissions_vals[i]:.2f}", f"${costs_vals[i]:.2f}"] for i in range(len(units))]
     table_data.append(['Total', f"{sum(units):.0f}", f"{total_emissions:.2f}", f"${total_cost:.2f}"])
     column_labels = ['Supplier', 'Units Sourced', 'Emissions', 'Cost']
 
     st.table(pd.DataFrame(table_data, columns=column_labels))
+
+    # Display the plot in Streamlit
+    st.pyplot(fig)
 
 # Main Streamlit interface
 st.title('Supply Chain Sourcing Optimization')
