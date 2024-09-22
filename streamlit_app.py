@@ -1,11 +1,15 @@
-import streamlit as st
+import streamlit as st 
 import pandas as pd
 import pulp 
-import matplotlib.pyplot as plt
+import altair as alt
 
-st.title("🎈 Procurement Scenario Planning")
+st.title("Procurement Scenario Planning")
 st.write(
- "The app is designed to solve a supply chain optimization problem by calculating an optimal sourcing strategy for multiple suppliers. It leverages data on supplier capacity, cost, emissions, and monthly demand, which users upload in CSV format. The app computes the optimal solution that minimizes total costs while meeting demand and adhering to emissions constraints, such as an emissions cap and a carbon cost penalty for emissions. Through the use of interactive sliders, users can conduct sensitivity analysis by adjusting the emissions cap and carbon cost in real time. Each adjustment triggers a recalculation of the optimal solution, updating the recommended units to source from each supplier, the corresponding emissions, and the total cost. This feature allows for exploration of different scenarios, providing valuable insights into the trade-offs between costs and emissions under various constraints")
+    "The app is designed to solve a supply chain optimization problem by calculating an optimal sourcing strategy for multiple suppliers. "
+    "It leverages data on supplier capacity, cost, emissions, and monthly demand, which users upload in CSV format. The app computes the optimal solution "
+    "that minimizes total costs while meeting demand and adhering to emissions constraints, such as an emissions cap and a carbon cost penalty for emissions."
+    "Interactive sliders allow sensitivity analysis by adjusting the emissions cap and carbon cost in real-time, providing valuable insights into the trade-offs between costs and emissions."
+)
 
 # Function to load supplier and demand data from an uploaded CSV file
 def load_data(uploaded_file):
@@ -40,9 +44,8 @@ def optimize_sourcing(demand, capacities, costs, emissions, emissions_cap, Carbo
 
     return x_vals, total_emissions, total_cost
 
-# Function to plot the results
-def plot_sourcing_and_emissions(data, emissions_cap, CarbonCost, month):
-    # Extract data for the selected month
+# Function to plot sourcing, emissions, and costs
+def plot_sourcing_and_emissions(data, emissions_cap, CarbonCost, month, unit_color, emission_color, cost_color):
     demand = data[f'Demand_Month_{month}'].values[0]
     capacities = data['Capacity'].values
     costs = data['Cost'].values
@@ -51,42 +54,88 @@ def plot_sourcing_and_emissions(data, emissions_cap, CarbonCost, month):
     # Get optimization results
     x_vals, total_emissions, total_cost = optimize_sourcing(demand, capacities, costs, emissions, emissions_cap, CarbonCost)
 
-    # Create plot
+    # Prepare data for Altair plot
     labels = data['Supplier'].values
-    units = x_vals
-    emissions_vals = [emissions[i] * units[i] for i in range(len(units))]
-    costs_vals = [(costs[i]+CarbonCost) * units[i] for i in range(len(units))]
+    emissions_vals = [emissions[i] * x_vals[i] for i in range(len(x_vals))]
+    costs_vals = [(costs[i] + CarbonCost) * x_vals[i] for i in range(len(x_vals))]
 
-    fig, ax1 = plt.subplots(figsize=(9, 6))
-    ax1.bar(labels, units, color='#1f77b4', alpha=0.7, label='Units Sourced')
-    ax1.set_xlabel('Suppliers', fontsize=14)
-    ax1.set_ylabel('Units Sourced', color='#1f77b4', fontsize=12)
-    ax1.grid(axis='y', linestyle='--', alpha=0.7)
+    chart_data = pd.DataFrame({
+        'Supplier': labels,
+        'Units Sourced': x_vals,
+        'Emissions': emissions_vals,
+        'Costs': costs_vals
+    })
 
-    ax2 = ax1.twinx()
-    ax2.bar(labels, emissions_vals, color='#ff7f0e', alpha=0.7, width=0.4, align='edge', label='Emissions')
-    ax2.set_ylabel('Emissions (units)', color='#ff7f0e', fontsize=12)
-
-    ax2.plot(labels, costs_vals, color='#2ca02c', marker='o', markersize=8, label='Costs')
-    ax2.set_ylabel('Costs ($)', color='#2ca02c', fontsize=12)
-
-    plt.title(f"Sourcing Optimization for Month {month}: Emissions Cap = {emissions_cap}, Carbon Cost = {CarbonCost}", fontsize=16)
-    fig.tight_layout()
-
-    # Display a table with results
-    table_data = [[labels[i], f"{units[i]:.0f}", f"{emissions_vals[i]:.2f}", f"${costs_vals[i]:.2f}"] for i in range(len(units))]
-    table_data.append(['Total', f"{sum(units):.0f}", f"{total_emissions:.2f}", f"${total_cost:.2f}"])
+    # Display table before chart
+    table_data = [[labels[i], f"{x_vals[i]:.0f}", f"{emissions_vals[i]:.2f}", f"${costs_vals[i]:.2f}"] for i in range(len(x_vals))]
+    table_data.append(['Total', f"{sum(x_vals):.0f}", f"{sum(emissions_vals):.2f}", f"${sum(costs_vals):.2f}"])
     column_labels = ['Supplier', 'Units Sourced', 'Emissions', 'Cost']
 
     st.table(pd.DataFrame(table_data, columns=column_labels))
 
-    # Display the plot in Streamlit
-    st.pyplot(fig)
+    # Create an Altair chart based on user's selected colors
+    base = alt.Chart(chart_data).encode(
+        x='Supplier:N',
+        tooltip=['Supplier', 'Units Sourced', 'Emissions', 'Costs']
+    )
 
-# Main Streamlit interface
-st.title('Supply Chain Sourcing Optimization')
+    units_bar = base.mark_bar(color=unit_color).encode(
+        y=alt.Y('Units Sourced:Q', axis=alt.Axis(title='Units Sourced', titleColor=unit_color))
+    )
 
-# Upload the CSV file
+    emissions_bar = base.mark_bar(color=emission_color).encode(
+        y=alt.Y('Emissions:Q', axis=alt.Axis(title='Emissions (units)', titleColor=emission_color, offset=60))
+    ).properties(width=600)
+
+    costs_line = base.mark_line(color=cost_color).encode(
+        y=alt.Y('Costs:Q', axis=alt.Axis(title='Costs ($)', titleColor=cost_color, offset=120))
+    )
+
+    # Combine charts and adjust spacing between the y-axes
+    combined_chart = alt.layer(units_bar, emissions_bar, costs_line).resolve_scale(
+        y='independent'
+    ).properties(
+        width=800,
+        height=600,
+        title=f"Sourcing Optimization for Month {month}: Emissions Cap = {emissions_cap}, Carbon Cost = {CarbonCost}"
+    )
+
+    st.altair_chart(combined_chart)
+
+# Function to plot pie chart for emissions percentage using Altair
+def plot_emissions_pie_chart(suppliers, emissions_vals, color_scheme):
+    demand = data[f'Demand_Month_{month}'].values[0]
+    capacities = data['Capacity'].values
+    costs = data['Cost'].values
+    emissions = data['Emissions'].values
+
+    # Get optimization results
+    x_vals, total_emissions, total_cost = optimize_sourcing(demand, capacities, costs, emissions, emissions_cap, CarbonCost)
+
+    emissions_vals = [emissions[i] * x_vals[i] for i in range(len(x_vals))]
+    percentages = [round(val / total_emissions * 100, 2) if total_emissions > 0 else 0 for val in emissions_vals]  # Calculate percentages
+
+    pie_data = pd.DataFrame({
+        'Supplier': suppliers,
+        'Emissions': emissions_vals,
+        'Percentage': percentages
+    })
+
+    pie_chart = alt.Chart(pie_data).mark_arc().encode(
+        theta=alt.Theta(field='Emissions', type='quantitative'),
+        color=alt.Color(field='Supplier', type='nominal', scale=alt.Scale(scheme=color_scheme)),
+        tooltip=[
+            'Supplier',
+            'Emissions',
+            alt.Tooltip('Percentage:Q', format='.2f')  # Format as number with two decimals
+        ]
+    ).properties(
+        title='Emissions by Supplier'
+    )
+
+    st.altair_chart(pie_chart, use_container_width=True)
+
+# Main interface
 uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
 if uploaded_file:
@@ -97,6 +146,24 @@ if uploaded_file:
     CarbonCost = st.slider('Carbon Cost', 0.0, 10.0, 1.0)
     month = st.slider('Month', 1, 12, 1)
 
-    # Generate plot and table
-    plot_sourcing_and_emissions(data, emissions_cap, CarbonCost, month)
+    # Color pickers for bars and lines
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        unit_color = st.color_picker('Pick a color for Units Sourced bar', '#4c78a8')
+    with col2:
+        emission_color = st.color_picker('Pick a color for Emissions bar', '#72b7b2')
+    with col3:
+        cost_color = st.color_picker('Pick a color for Costs line', '#9ecae9')
 
+    # Generate plot and table
+    plot_sourcing_and_emissions(data, emissions_cap, CarbonCost, month, unit_color, emission_color, cost_color)
+
+    # Prepare data for pie chart based on the latest emissions values
+    labels = data['Supplier'].values
+    emissions_vals = [data['Emissions'][i] * data[f'Demand_Month_{month}'][0] for i in range(len(data['Supplier']))]
+
+    # Let user pick a color scheme for the pie chart
+    pie_color_scheme = st.selectbox('Choose a color scheme for the pie chart', ['blues', 'greens', 'reds'])
+
+    # Generate pie chart for emissions percentage by supplier
+    plot_emissions_pie_chart(labels, emissions_vals, pie_color_scheme)
