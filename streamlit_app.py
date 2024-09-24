@@ -124,7 +124,7 @@ if uploaded_file:
 
     with st.container():
         c1.write("Emissions, Current Scenario vs Baseline")
-        c2.write("Emissions perc. by supplier")
+        c2.write("Cost, Current Scenario vs Baseline")
 
     with c1:
             # Create DataFrame for Altair chart
