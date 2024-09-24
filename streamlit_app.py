@@ -290,7 +290,7 @@ if uploaded_file:
         # Display the pie chart in Streamlit
         st.plotly_chart(fig)
             
-    with st.container():
+    #with st.container():
     #    c5.write("Emission vs Cost")
     #    c6.write("Units sourced perc. by supplier")
   
